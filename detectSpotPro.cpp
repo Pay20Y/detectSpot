@@ -13,6 +13,7 @@
 #include <math.h>
 #include <vector>
 #include <string>
+#include <fstream>
 #include "SWT.h"
 
 using namespace swt;
@@ -69,6 +70,9 @@ std::vector<std::vector<Point>> afterSWT(Mat& input,Mat& edgeImage,Mat& gradient
    
     std::vector<Ray> rays;
 
+    // ofstream fout;
+    // fout.open("point.txt");
+
     SWT swt;
     swt.StrokeWidthTransform(edgeImage,gradientX,gradientY,1,SWTImage,rays);
     swt.SWTMedianFilter(SWTImage, rays);
@@ -86,12 +90,14 @@ std::vector<std::vector<Point>> afterSWT(Mat& input,Mat& edgeImage,Mat& gradient
             for(std::vector<SWTPoint2d>::const_iterator it2 = it1->begin();it2 != it1->end();it2++){
                 validComponentsImage.at<uchar>(it2->y,it2->x) = 255;
                 Point p(it2->x,it2->y);
+                // fout<<"("<<it2->x<<","<<it2->y<<") ";
                 temp_comp.push_back(p);
             }
+            // fout<<"\n";
             gotComponents.push_back(temp_comp);
         }
     }
-
+    // fout.close();
     cout<<"Let's check the validComponents's size is: "<<validComponents.size()<<" --- the gotComponents'size is: "<<gotComponents.size()<<endl;
 
     return gotComponents;
@@ -237,7 +243,7 @@ void doDetectHSV(std::vector<std::vector<Point>>& components,Mat& input,std::vec
         if(max(bRect.width,bRect.height)>45 && (min(bRect.height,bRect.width)>45)){
             notSpot = true;
         }
-        if(max(bRect.width,bRect.height)>50){
+        if(max(bRect.width,bRect.height)>80){
             notCharacter = true;
         }
         //cout<<"-->solidity is: "<<solidity<<endl;
@@ -253,7 +259,7 @@ void doDetectHSV(std::vector<std::vector<Point>>& components,Mat& input,std::vec
         }else if(((bRect.width / input.cols) > 0.3) || ((bRect.height / input.rows) > 0.3)){
             hullfilter.push_back(*it1);
         }
-        // hullfilter.push_back(*it1);
+        //hullfilter.push_back(*it1);
     }
     cout<<"hullfilter'size is: "<<hullfilter.size()<<endl;
 
@@ -305,7 +311,7 @@ void plotComponents_black(std::vector<std::vector<Point>>& components,Mat& showC
 }
 
 int main(){
-    for(int num = 66;num < 67;num++){
+    for(int num = 0;num < 154;num++){
         cout<<"Now process the No. "<<num<<" Image"<<endl;
         Mat input = loadImage(num);
         Mat grayImage = convert2gray(input);
