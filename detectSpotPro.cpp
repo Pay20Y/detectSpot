@@ -38,7 +38,7 @@ Mat loadImage(int num){
     }*/
     filename = to_string(num) + ".jpg";
     //string imagepath = "/home/george/data/nBlog/"+filename;
-    string imagepath = "/home/george/data/dotImageS/" + filename;
+    string imagepath = "/home/george/data/dotlines/" + filename;
     Mat image = imread(imagepath);
     if (image.empty()) {
         cout<<"read image failed"<<endl;
@@ -80,14 +80,16 @@ std::vector<std::vector<Point>> afterSWT(Mat& input,Mat& edgeImage,Mat& gradient
     gotComponents.reserve(validComponents.size());
 
     for(std::vector<std::vector<SWTPoint2d>>::const_iterator it1 = validComponents.begin();it1 != validComponents.end();it1++){
-        std::vector<Point> temp_comp;
-        temp_comp.reserve(it1->size());
-        for(std::vector<SWTPoint2d>::const_iterator it2 = it1->begin();it2 != it1->end();it2++){
-            validComponentsImage.at<uchar>(it2->y,it2->x) = 255;
-            Point p(it2->x,it2->y);
-            temp_comp.push_back(p);
+        if(it1->size() > 0){
+            std::vector<Point> temp_comp;
+            temp_comp.reserve(it1->size());
+            for(std::vector<SWTPoint2d>::const_iterator it2 = it1->begin();it2 != it1->end();it2++){
+                validComponentsImage.at<uchar>(it2->y,it2->x) = 255;
+                Point p(it2->x,it2->y);
+                temp_comp.push_back(p);
+            }
+            gotComponents.push_back(temp_comp);
         }
-        gotComponents.push_back(temp_comp);
     }
 
     cout<<"Let's check the validComponents's size is: "<<validComponents.size()<<" --- the gotComponents'size is: "<<gotComponents.size()<<endl;
@@ -181,7 +183,6 @@ void doDetectHSV(std::vector<std::vector<Point>>& components,Mat& input,std::vec
         std::vector<int> sValue;
         std::vector<int> vValue;
         std::vector<int> rgbRatio;
-
         for(std::vector<Point>::const_iterator it2 = it1->begin();it2 != it1->end(); it2++){
             int redValue;
             int greenValue;
@@ -202,7 +203,6 @@ void doDetectHSV(std::vector<std::vector<Point>>& components,Mat& input,std::vec
             rgbRatio.push_back((ratio1 + ratio2 + ratio3)/3);
 
         }
-       
         int maxHValue = *max_element(hValue.begin(),hValue.end());
         int minHValue = *min_element(hValue.begin(),hValue.end());
         // int maxSValue = *max_element(sValue.begin(),sValue.end());
@@ -211,7 +211,8 @@ void doDetectHSV(std::vector<std::vector<Point>>& components,Mat& input,std::vec
         bool hsvJudge = false;
 
         int disH = ((maxHValue - minHValue) <= 90)?(maxHValue - minHValue):(180 - maxHValue + minHValue);
-        if((maxRatio > 50)){
+
+        if((maxRatio > 20) || (disH > 60)){
             hsvJudge = true;
         }
         float compArea = countNonZero(temp_convex);
@@ -235,22 +236,24 @@ void doDetectHSV(std::vector<std::vector<Point>>& components,Mat& input,std::vec
         bool notSpot = false;
         if(max(bRect.width,bRect.height)>45 && (min(bRect.height,bRect.width)>45)){
             notSpot = true;
-        }else if(max(bRect.width,bRect.height)>60 || (min(bRect.height,bRect.width)>60)){
+        }
+        if(max(bRect.width,bRect.height)>50){
             notCharacter = true;
         }
         //cout<<"-->solidity is: "<<solidity<<endl;
         //there will be 4 conditions for detect marked line:area ratio,width&height ratio,color var
-        /*if((solidity < 0.4) && notCharacter){
+        
+        if((solidity <0.4) && notCharacter){
             hullfilter.push_back(*it1);
         }else if((max(bRect.width,bRect.height) / min(bRect.width,bRect.height) > 3) && notCharacter){
             hullfilter.push_back(*it1);
-        }else*/ if(hsvJudge){
+        }else if(hsvJudge && notCharacter){
             hullfilter.push_back(*it1);
-            cout<<"max H value is: "<<disH<<endl;
-
-        }/*else if(((bRect.width / input.cols) > 0.4) || ((bRect.height / input.rows) > 0.4)){
+            //cout<<"max H value is: "<<disH<<endl;
+        }else if(((bRect.width / input.cols) > 0.3) || ((bRect.height / input.rows) > 0.3)){
             hullfilter.push_back(*it1);
-        }*/
+        }
+        // hullfilter.push_back(*it1);
     }
     cout<<"hullfilter'size is: "<<hullfilter.size()<<endl;
 
@@ -262,17 +265,29 @@ void plotComponents_rgb(std::vector<std::vector<Point>>& components,Mat& showCom
     int count = 0;
     for(std::vector<std::vector<Point>>::const_iterator it1 = components.begin();it1 != components.end();it1++){
         for(std::vector<Point>::const_iterator it2 = it1->begin();it2 != it1->end();it2++){
-            if(count % 3 == 0){
+            if(count % 6 == 0){
                 showComponents.at<Vec3b>(it2->y,it2->x)[0] = 255;
                 showComponents.at<Vec3b>(it2->y,it2->x)[1] = 0;
                 showComponents.at<Vec3b>(it2->y,it2->x)[2] = 0;
-            }else if(count % 3 ==1){
+            }else if(count % 6 == 1){
                 showComponents.at<Vec3b>(it2->y,it2->x)[0] = 0;
                 showComponents.at<Vec3b>(it2->y,it2->x)[1] = 255;
                 showComponents.at<Vec3b>(it2->y,it2->x)[2] = 0;
-            }else{
+            }else if(count % 6 == 2){
                 showComponents.at<Vec3b>(it2->y,it2->x)[0] = 0;
                 showComponents.at<Vec3b>(it2->y,it2->x)[1] = 0;
+                showComponents.at<Vec3b>(it2->y,it2->x)[2] = 255;
+            }else if(count % 6 == 3){
+                showComponents.at<Vec3b>(it2->y,it2->x)[0] = 255;
+                showComponents.at<Vec3b>(it2->y,it2->x)[1] = 255;
+                showComponents.at<Vec3b>(it2->y,it2->x)[2] = 0;
+            }else if(count % 6 == 4){
+                showComponents.at<Vec3b>(it2->y,it2->x)[0] = 255;
+                showComponents.at<Vec3b>(it2->y,it2->x)[1] = 0;
+                showComponents.at<Vec3b>(it2->y,it2->x)[2] = 255;
+            }else{
+                showComponents.at<Vec3b>(it2->y,it2->x)[0] = 0;
+                showComponents.at<Vec3b>(it2->y,it2->x)[1] = 255;
                 showComponents.at<Vec3b>(it2->y,it2->x)[2] = 255;
             }
         }
@@ -290,7 +305,7 @@ void plotComponents_black(std::vector<std::vector<Point>>& components,Mat& showC
 }
 
 int main(){
-    for(int num =10;num < 11;num++){
+    for(int num = 66;num < 67;num++){
         cout<<"Now process the No. "<<num<<" Image"<<endl;
         Mat input = loadImage(num);
         Mat grayImage = convert2gray(input);
@@ -341,8 +356,8 @@ int main(){
         Mat validComponentsImage_rgb = Mat::zeros(input.size(),CV_8UC3);
         validComponentsImage_rgb = ~validComponentsImage_rgb;
         plotComponents_rgb(swtPoints,validComponentsImage_rgb);
-        imwrite("data/SWT/"+to_string(num)+".jpg",validComponentsImage_rgb);
-
+        imwrite("../data/SWT/"+to_string(num)+".jpg",validComponentsImage_rgb);
+        cout<<"SWT end!"<<endl;
         
         std::vector<std::vector<Point>> hullfilter;
         //doDetect(swtPoints,input,hullfilter);
@@ -358,7 +373,7 @@ int main(){
         showHullResult.copyTo(intermediateResult(Rect(0 ,SWTImage.rows + 10, showHullResult.cols, showHullResult.rows)));
         cvtColor (intermediateResult, intermediateResult, CV_GRAY2RGB);
         input.copyTo(intermediateResult(Rect(showHullResult.cols + 10, SWTImage.rows + 10, input.cols, input.rows)));
-        imwrite("data/marked/"+to_string(num)+".jpg",intermediateResult);
+        imwrite("../data/marked/"+to_string(num)+".jpg",intermediateResult);
         // imshow("result",showHullResult);
         // waitKey(-1);
         

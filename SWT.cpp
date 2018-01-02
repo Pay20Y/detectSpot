@@ -250,6 +250,18 @@ void componentStats(Mat& SWTImage,const std::vector<SWTPoint2d> & component,floa
         variance = variance / ((float)component.size());
         std::sort(temp.begin(),temp.end());
 }
+
+void filterRay(Mat& SWTImage,std::vector<SWTPoint2d>& components,std::vector<SWTPoint2d>& temp){
+    std::vector<SWTPoint2d> afterFilter;
+    for(std::vector<SWTPoint2d>::const_iterator it = components.begin();it != components.end();it++){
+        if(SWTImage.at<float>(it->y,it->x) <= 20){
+            afterFilter.push_back(*it);
+        }
+    }
+    // return afterFilter;
+}
+
+//the filter conditions just for detect spot lines!
 std::vector<std::vector<SWTPoint2d>> SWT::filterComponents(Mat& SWTImage,std::vector<std::vector<SWTPoint2d> > & components){
         std::vector<std::vector<SWTPoint2d>> validComponents;
         validComponents.reserve(components.size());
@@ -259,18 +271,34 @@ std::vector<std::vector<SWTPoint2d>> SWT::filterComponents(Mat& SWTImage,std::ve
             // compute the stroke width mean, variance, median
             float mean, variance;
             int minx, miny, maxx, maxy;
+            /*
             componentStats(SWTImage, (*it), mean, variance, minx, miny, maxx, maxy);
-           /*
-            if (variance > 1.3 * mean) {   
-                  continue;
-            }*/
-
-            if(mean > 10){
+            if(mean > 20){
                 continue;
             }
+            */
+            /*
+            if (variance > 1.3 * mean) {   
+                  continue;
+            }
+            */
+            //std::vector<SWTPoint2d> temp = *it;
+            
+            std::vector<SWTPoint2d> temp;
+            temp.reserve(it->size());
+            for(std::vector<SWTPoint2d>::const_iterator it2 = it->begin();it2 != it->end();it2++){
+                float swtValue = SWTImage.at<float>(it2->y,it2->x);
+                if(swtValue <= 20){
+                    temp.push_back(*it2);
+                }
+            }
+            
+
+            // filterRay(SWTImage,(*it),temp);
+            /*
             float length = (float)(maxx-minx+1);
             float width = (float)(maxy-miny+1);
-
+            */
             // check font height
             //this condition can filter the marked line so abandon it!
             /*
@@ -278,6 +306,7 @@ std::vector<std::vector<SWTPoint2d>> SWT::filterComponents(Mat& SWTImage,std::ve
                 continue;
             }
             */
+            /*
             float area = length * width;
             float rminx = (float)minx;
             float rmaxx = (float)maxx;
@@ -307,6 +336,7 @@ std::vector<std::vector<SWTPoint2d>> SWT::filterComponents(Mat& SWTImage,std::ve
                     width = wtemp;
                 }
             }
+            */
             /*
             if (length/width < 1./15. || length/width > 15.) {
                 continue;
@@ -319,14 +349,16 @@ std::vector<std::vector<SWTPoint2d>> SWT::filterComponents(Mat& SWTImage,std::ve
                 continue;
             }*/
             // create graph representing components
-            validComponents.push_back(*it);
+            //validComponents.push_back(temp);
+            validComponents.push_back(temp);
+            //validComponents.push_back(*it);
         }
 
-       std::vector<std::vector<SWTPoint2d > > tempComp;
-       tempComp.reserve(validComponents.size());
+        std::vector<std::vector<SWTPoint2d > > tempComp;
+        tempComp.reserve(validComponents.size());
 
-       for (unsigned int i = 0; i < validComponents.size(); i++) {
-                tempComp.push_back(validComponents[i]);
+        for (unsigned int i = 0; i < validComponents.size(); i++) {
+            tempComp.push_back(validComponents[i]);
         }
         validComponents = tempComp;
         
