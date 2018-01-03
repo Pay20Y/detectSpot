@@ -311,7 +311,7 @@ void plotComponents_black(std::vector<std::vector<Point>>& components,Mat& showC
 }
 
 int main(){
-    for(int num = 0;num < 154;num++){
+    for(int num = 55;num < 56;num++){
         cout<<"Now process the No. "<<num<<" Image"<<endl;
         Mat input = loadImage(num);
         Mat grayImage = convert2gray(input);

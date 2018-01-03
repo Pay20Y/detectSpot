@@ -271,7 +271,7 @@ std::vector<std::vector<SWTPoint2d>> SWT::filterComponents(Mat& SWTImage,std::ve
             // compute the stroke width mean, variance, median
             float mean, variance;
             int minx, miny, maxx, maxy;
-            
+            /*
             componentStats(SWTImage, (*it), mean, variance, minx, miny, maxx, maxy);
             
             if(mean > 40){
@@ -281,9 +281,9 @@ std::vector<std::vector<SWTPoint2d>> SWT::filterComponents(Mat& SWTImage,std::ve
             if (variance > 2 * mean) {   
                   continue;
             }
-            
+            */
             //std::vector<SWTPoint2d> temp = *it;
-            /*
+            
             std::vector<SWTPoint2d> temp;
             temp.reserve(it->size());
             for(std::vector<SWTPoint2d>::const_iterator it2 = it->begin();it2 != it->end();it2++){
@@ -291,7 +291,7 @@ std::vector<std::vector<SWTPoint2d>> SWT::filterComponents(Mat& SWTImage,std::ve
                 if(swtValue <= 30){
                     temp.push_back(*it2);
                 }
-            }*/
+            }
             
             // filterRay(SWTImage,(*it),temp);
             /*
