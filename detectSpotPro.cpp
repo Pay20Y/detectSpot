@@ -79,7 +79,7 @@ Mat doCanny(Mat& grayImage){
     return edgeImage;
 }   
 
-std::vector<std::vector<Point>> afterSWT(Mat& input,Mat& edgeImage,Mat& gradientX,Mat& gradientY,Mat& validComponentsImage,Mat& SWTImage){
+std::vector<std::vector<Point>> afterSWT(Mat& input,Mat& edgeImage,Mat& gradientX,Mat& gradientY,std::vector<std::vector<SWTPoint2d>>& components,Mat& validComponentsImage,Mat& SWTImage){
    
     std::vector<Ray> rays;
 
@@ -90,7 +90,8 @@ std::vector<std::vector<Point>> afterSWT(Mat& input,Mat& edgeImage,Mat& gradient
     swt.StrokeWidthTransform(edgeImage,gradientX,gradientY,1,SWTImage,rays);
     swt.SWTMedianFilter(SWTImage, rays);
 
-    std::vector<std::vector<SWTPoint2d>> components = swt.findLegallyConnectedComponents(SWTImage,rays);
+    // std::vector<std::vector<SWTPoint2d>> components = swt.findLegallyConnectedComponents(SWTImage,rays);
+    components = swt.findLegallyConnectedComponents(SWTImage,rays);
     std::vector<std::vector<SWTPoint2d>> validComponents = swt.filterComponents(SWTImage,components);
 
     std::vector<std::vector<Point>> gotComponents;
@@ -315,6 +316,43 @@ void plotComponents_rgb(std::vector<std::vector<Point>>& components,Mat& showCom
 
 }
 
+void plotComponents_rgb(std::vector<std::vector<SWTPoint2d>>& components,Mat& showComponents){
+    assert (showComponents.channels() == 3);
+
+    int count = 0;
+    for(std::vector<std::vector<SWTPoint2d>>::const_iterator it1 = components.begin();it1 != components.end();it1++){
+        for(std::vector<SWTPoint2d>::const_iterator it2 = it1->begin();it2 != it1->end();it2++){
+            if(count % 6 == 0){
+                showComponents.at<Vec3b>(it2->y,it2->x)[0] = 255;
+                showComponents.at<Vec3b>(it2->y,it2->x)[1] = 0;
+                showComponents.at<Vec3b>(it2->y,it2->x)[2] = 0;
+            }else if(count % 6 == 1){
+                showComponents.at<Vec3b>(it2->y,it2->x)[0] = 0;
+                showComponents.at<Vec3b>(it2->y,it2->x)[1] = 255;
+                showComponents.at<Vec3b>(it2->y,it2->x)[2] = 0;
+            }else if(count % 6 == 2){
+                showComponents.at<Vec3b>(it2->y,it2->x)[0] = 0;
+                showComponents.at<Vec3b>(it2->y,it2->x)[1] = 0;
+                showComponents.at<Vec3b>(it2->y,it2->x)[2] = 255;
+            }else if(count % 6 == 3){
+                showComponents.at<Vec3b>(it2->y,it2->x)[0] = 255;
+                showComponents.at<Vec3b>(it2->y,it2->x)[1] = 255;
+                showComponents.at<Vec3b>(it2->y,it2->x)[2] = 0;
+            }else if(count % 6 == 4){
+                showComponents.at<Vec3b>(it2->y,it2->x)[0] = 255;
+                showComponents.at<Vec3b>(it2->y,it2->x)[1] = 0;
+                showComponents.at<Vec3b>(it2->y,it2->x)[2] = 255;
+            }else{
+                showComponents.at<Vec3b>(it2->y,it2->x)[0] = 0;
+                showComponents.at<Vec3b>(it2->y,it2->x)[1] = 255;
+                showComponents.at<Vec3b>(it2->y,it2->x)[2] = 255;
+            }
+        }
+        count++;
+    }
+
+}
+
 void plotComponents_black(std::vector<std::vector<Point>>& components,Mat& showComponents){
     for(std::vector<std::vector<Point>>::const_iterator it1 = components.begin();it1 != components.end();it1++){
         for(std::vector<Point>::const_iterator it2 = it1->begin();it2 != it1->end();it2++){
@@ -364,9 +402,16 @@ int main(){
                 *ptr++ = -1;
             }
         }
-        std::vector<std::vector<Point>> swtPoints = afterSWT(input,edgeImage,gradientX,gradientY,validComponentsImage,SWTImage);
+
+        std::vector<std::vector<SWTPoint2d>> components;
+        std::vector<std::vector<Point>> swtPoints = afterSWT(input,edgeImage,gradientX,gradientY,components,validComponentsImage,SWTImage);
+        
         Mat validComponentsImage_rgb = Mat::zeros(input.size(),CV_8UC3);
         validComponentsImage_rgb = ~validComponentsImage_rgb;
+
+        Mat originComponentsImage = Mat::zeros(input.size(),CV_8UC3);
+        originComponentsImage = ~originComponentsImage;
+        plotComponents_rgb(components,originComponentsImage);
         plotComponents_rgb(swtPoints,validComponentsImage_rgb);
         imwrite("../data/SWT/"+to_string(num)+".jpg",validComponentsImage_rgb);
         cout<<"SWT end!"<<endl;
@@ -386,6 +431,7 @@ int main(){
         showHullResult.copyTo(intermediateResult(Rect(0 ,edgeImage.rows + 10, showHullResult.cols, showHullResult.rows)));
         cvtColor (intermediateResult, intermediateResult, CV_GRAY2RGB);
         input.copyTo(intermediateResult(Rect(showHullResult.cols + 10, edgeImage.rows + 10, input.cols, input.rows)));
+        originComponentsImage.copyTo(intermediateResult(Rect(2 * showHullResult.cols + 20, edgeImage.rows + 10, originComponentsImage.cols, originComponentsImage.rows)));
         imwrite("../data/marked/"+to_string(num)+".jpg",intermediateResult);
         // imshow("result",showHullResult);
         // waitKey(-1);
