@@ -14,6 +14,8 @@
 #include <vector>
 #include <string>
 #include <fstream>
+#include <sys/types.h> //to get file from folder
+#include <dirent.h>
 #include "SWT.h"
 
 using namespace swt;
@@ -39,6 +41,17 @@ Mat loadImage(int num){
     }*/
     filename = to_string(num) + ".jpg";
     //string imagepath = "/home/george/data/nBlog/"+filename;
+    string imagepath = "/home/george/data/dotlines/" + filename;
+    Mat image = imread(imagepath);
+    if (image.empty()) {
+        cout<<"read image failed"<<endl;
+        return Mat();
+    }
+    cvtColor(image, image, CV_BGR2RGB);
+    return image;
+}
+
+Mat loadImageFolder(string filename){
     string imagepath = "/home/george/data/dotlines/" + filename;
     Mat image = imread(imagepath);
     if (image.empty()) {
@@ -239,9 +252,9 @@ void doDetectHSV(std::vector<std::vector<Point>>& components,Mat& input,std::vec
             tooSmall = false;
         }
         bool notCharacter = false;
-        bool notSpot = false;
-        if(max(bRect.width,bRect.height)>45 && (min(bRect.height,bRect.width)>45)){
-            notSpot = true;
+        bool notHead = false;
+        if(max(bRect.width,bRect.height)>125 && (min(bRect.height,bRect.width)>100)){
+            notHead = true;
         }
         if(max(bRect.width,bRect.height)>80){
             notCharacter = true;
@@ -249,11 +262,11 @@ void doDetectHSV(std::vector<std::vector<Point>>& components,Mat& input,std::vec
         //cout<<"-->solidity is: "<<solidity<<endl;
         //there will be 4 conditions for detect marked line:area ratio,width&height ratio,color var
         
-        if((solidity <0.4) && notCharacter){
+        if((solidity <0.4) && notHead){
             hullfilter.push_back(*it1);
-        }else if((max(bRect.width,bRect.height) / min(bRect.width,bRect.height) > 3) && notCharacter){
+        }else if((max(bRect.width,bRect.height) / min(bRect.width,bRect.height) > 3) && notCharacter && (solidity < 0.9)){
             hullfilter.push_back(*it1);
-        }else if(hsvJudge && notCharacter){
+        }else if(hsvJudge && notHead && (solidity < 0.9)){
             hullfilter.push_back(*it1);
             //cout<<"max H value is: "<<disH<<endl;
         }else if(((bRect.width / input.cols) > 0.3) || ((bRect.height / input.rows) > 0.3)){
@@ -311,7 +324,79 @@ void plotComponents_black(std::vector<std::vector<Point>>& components,Mat& showC
 }
 
 int main(){
-    for(int num = 55;num < 56;num++){
+    DIR* pDir;
+    struct dirent* ptr; 
+    if(!(pDir = opendir("/home/george/data/dotlines")))
+        return -1;
+    int num = 0;
+    while((ptr = readdir(pDir)) != 0){
+        string filename = ptr->d_name;
+        cout<<"Now process "<<filename<<" ..."<<endl;
+        if(ptr->d_type == 4){
+            cout<<"a dir continue..."<<endl;
+            continue;
+        }
+
+        // cout<<ptr->d_type<<" "<<ptr->d_ino<<endl;
+        Mat input = loadImageFolder(filename);
+        Mat grayImage = convert2gray(input);
+        Mat edgeImage = doCanny(grayImage);
+        
+        Mat inputHSV;
+        cvtColor(input,inputHSV,CV_RGB2HSV);
+        
+        Mat gradientX( input.size(), CV_32FC1 );
+        Mat gradientY( input.size(), CV_32FC1 );
+        Mat gaussianImage( grayImage.size(), CV_32FC1); // 元素类型为 32位float型，一个通道
+        grayImage.convertTo(gaussianImage, CV_32FC1, 1./255.);
+
+        GaussianBlur( gaussianImage, gaussianImage, Size(5, 5), 0); // blurs an image using a Gaussian filter
+        Scharr(gaussianImage, gradientX, -1, 1, 0); // calculates the x- image derivative 
+        Scharr(gaussianImage, gradientY, -1, 0, 1);  // calculates the y- image derivative
+        GaussianBlur(gradientX, gradientX, Size(3, 3), 0);
+        GaussianBlur(gradientY, gradientY, Size(3, 3), 0); 
+
+        Mat validComponentsImage = Mat::zeros(input.size(),CV_8UC1);
+        Mat SWTImage( input.size(), CV_32FC1 );
+        for( int row = 0; row < input.rows; row++ ){
+            float* ptr = (float*)SWTImage.ptr(row);   // cv::Mat::ptr() : return a pointer to the specified matrix row
+            for ( int col = 0; col < input.cols; col++ ){
+                *ptr++ = -1;
+            }
+        }
+        std::vector<std::vector<Point>> swtPoints = afterSWT(input,edgeImage,gradientX,gradientY,validComponentsImage,SWTImage);
+        Mat validComponentsImage_rgb = Mat::zeros(input.size(),CV_8UC3);
+        validComponentsImage_rgb = ~validComponentsImage_rgb;
+        plotComponents_rgb(swtPoints,validComponentsImage_rgb);
+        imwrite("../data/SWT/"+to_string(num)+".jpg",validComponentsImage_rgb);
+        cout<<"SWT end!"<<endl;
+        
+        std::vector<std::vector<Point>> hullfilter;
+        //doDetect(swtPoints,input,hullfilter);
+        doDetectHSV(swtPoints,input,hullfilter);
+        Mat showHullResult = Mat::zeros(input.size(),CV_8UC1);
+        plotComponents_black(hullfilter,showHullResult);
+
+        Mat SWT2Show = 255 * SWTImage;
+        //output result
+        Mat intermediateResult = Mat::zeros(2 * input.rows + 10, 3 * input.cols + 20, CV_8UC1);
+        edgeImage.copyTo(intermediateResult(Rect(0 , 0, edgeImage.cols, edgeImage.rows)));
+        SWT2Show.copyTo(intermediateResult(Rect(edgeImage.cols + 10 , 0, SWTImage.cols, SWTImage.rows)));
+        validComponentsImage.copyTo(intermediateResult(Rect(2 * SWTImage.cols + 20,0 , validComponentsImage.cols, validComponentsImage.rows)));
+        showHullResult.copyTo(intermediateResult(Rect(0 ,edgeImage.rows + 10, showHullResult.cols, showHullResult.rows)));
+        cvtColor (intermediateResult, intermediateResult, CV_GRAY2RGB);
+        input.copyTo(intermediateResult(Rect(showHullResult.cols + 10, edgeImage.rows + 10, input.cols, input.rows)));
+        imwrite("../data/marked/"+to_string(num)+".jpg",intermediateResult);
+        // imshow("result",showHullResult);
+        // waitKey(-1);
+        
+        cout<<"Image "<<num<<" end!"<<endl;
+        num++;
+    }
+
+    closedir(pDir);
+    /*
+    for(int num = 0;num < 154;num++){
         cout<<"Now process the No. "<<num<<" Image"<<endl;
         Mat input = loadImage(num);
         Mat grayImage = convert2gray(input);
@@ -357,7 +442,7 @@ int main(){
         imshow("test",testComponent);
         waitKey(-1);
         cout<<"HSV Info show end!"<<endl;
-        */
+        *//*
         
         Mat validComponentsImage_rgb = Mat::zeros(input.size(),CV_8UC3);
         validComponentsImage_rgb = ~validComponentsImage_rgb;
@@ -384,5 +469,5 @@ int main(){
         // waitKey(-1);
         
         cout<<"Image "<<num<<" end!"<<endl;
-    }
+    }*/
 }

@@ -106,7 +106,7 @@ void SWT::StrokeWidthTransform(const Mat& edgeImage,Mat& gradientX,Mat& gradient
                                 
                                 int threshold_L = 0.2 * (edgeImage.cols < edgeImage.rows ? edgeImage.cols : edgeImage.rows);
                                 if (length > threshold_L){
-                                    r.points = points;
+                                    //r.points = points; //throw out whole ray
                                     break;
                                 }
 
@@ -271,24 +271,25 @@ std::vector<std::vector<SWTPoint2d>> SWT::filterComponents(Mat& SWTImage,std::ve
             // compute the stroke width mean, variance, median
             float mean, variance;
             int minx, miny, maxx, maxy;
-            /*
+            
             componentStats(SWTImage, (*it), mean, variance, minx, miny, maxx, maxy);
             
-            if(mean > 40){
+            /*
+            if(mean > 50){
                 continue;
-            }
+            }*/
             
-            if (variance > 2 * mean) {   
+            if (variance > 2.5 * mean) {   
                   continue;
             }
-            */
+            
             //std::vector<SWTPoint2d> temp = *it;
             
             std::vector<SWTPoint2d> temp;
             temp.reserve(it->size());
             for(std::vector<SWTPoint2d>::const_iterator it2 = it->begin();it2 != it->end();it2++){
                 float swtValue = SWTImage.at<float>(it2->y,it2->x);
-                if(swtValue <= 30){
+                if(swtValue <= 20){
                     temp.push_back(*it2);
                 }
             }
