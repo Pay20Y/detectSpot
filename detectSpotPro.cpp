@@ -196,11 +196,12 @@ void doDetect(std::vector<std::vector<Point>>& components,Mat& input,std::vector
 void doDetectHSV(std::vector<std::vector<Point>>& components,Mat& input,std::vector<std::vector<Point>>& hullfilter){
     Mat inputHSV;
     cvtColor(input,inputHSV,CV_RGB2HSV);
+    std::vector<float> disRGBs;
+    std::vector<int> disHs;
     for(std::vector<std::vector<Point>>::const_iterator it1 = components.begin();it1 != components.end();it1++){
         Mat temp_convex = Mat::zeros(input.size(),CV_8UC1);
 
         float solidity = 0.0;
-
         std::vector<int> hValue;
         std::vector<int> sValue;
         std::vector<int> vValue;
@@ -237,10 +238,13 @@ void doDetectHSV(std::vector<std::vector<Point>>& components,Mat& input,std::vec
         if((maxRatio > 20) || (disH > 60)){
             hsvJudge = true;
         }
-        float compArea = countNonZero(temp_convex);
 
-        vector<vector<Point>> contours;
-        findContours( temp_convex, contours, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE );
+        disRGBs.push_back(maxRatio);
+        disHs.push_back(disH);
+       
+	float compArea = countNonZero(temp_convex);
+        vector<vector<Point>> contours;//存储轮廓的像素点
+        findContours( temp_convex, contours, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE );//寻找轮廓
 
         Rect bRect = boundingRect(contours[0]);
 
@@ -256,7 +260,7 @@ void doDetectHSV(std::vector<std::vector<Point>>& components,Mat& input,std::vec
         }
         bool notCharacter = false;
         bool notHead = false;
-        if(max(bRect.width,bRect.height)>150 && (min(bRect.height,bRect.width)>100)){
+        if(max(bRect.width,bRect.height)>150 && (min(bRect.height,bRect.width)>50)){
             notHead = true;
         }
         if(max(bRect.width,bRect.height)>80){
@@ -264,11 +268,12 @@ void doDetectHSV(std::vector<std::vector<Point>>& components,Mat& input,std::vec
         }
         //cout<<"-->solidity is: "<<solidity<<endl;
         //there will be 4 conditions for detect marked line:area ratio,width&height ratio,color var
-        
+        //cout<<"solidity is: "<<solidity<<endl;
         if((solidity <0.4) && notHead){
             hullfilter.push_back(*it1);
-        }else if((max(bRect.width,bRect.height) / min(bRect.width,bRect.height) > 3) && notCharacter && (solidity < 0.9)){
+        }else if((max(bRect.width,bRect.height) / min(bRect.width,bRect.height) > 3) && ((max(bRect.width,bRect.height) / min(bRect.width,bRect.height) < 15)) && notCharacter && (solidity < 0.9)){    
             hullfilter.push_back(*it1);
+        
         }else if(hsvJudge && notHead && (solidity < 0.9)){
             hullfilter.push_back(*it1);
             //cout<<"max H value is: "<<disH<<endl;
@@ -277,6 +282,10 @@ void doDetectHSV(std::vector<std::vector<Point>>& components,Mat& input,std::vec
         }
         //hullfilter.push_back(*it1);
     }
+    float printRGB = *max_element(disRGBs.begin(),disRGBs.end());
+    int printHSV = *max_element(disHs.begin(),disHs.end());
+    cout<<"rgb is: "<<printRGB<<endl;
+    cout<<"hsv is: "<<printHSV<<endl;
     cout<<"hullfilter'size is: "<<hullfilter.size()<<endl;
 
 }
@@ -371,12 +380,17 @@ int main(){
     int num = 0;
     while((ptr = readdir(pDir)) != 0){
         string filename = ptr->d_name;
-        cout<<"Now process "<<filename<<" ..."<<endl;
+        
         if(ptr->d_type == 4){
             cout<<"a dir continue..."<<endl;
             continue;
         }
+        /*
+        if(!(filename == "14.jpg")){
+            continue;
+        }*/
 
+        cout<<"Now process "<<filename<<" ..."<<endl;
         // cout<<ptr->d_type<<" "<<ptr->d_ino<<endl;
         Mat input = loadImageFolder(filename);
         Mat grayImage = convert2gray(input);

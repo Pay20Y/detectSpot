@@ -296,7 +296,7 @@ std::vector<std::vector<SWTPoint2d>> SWT::filterComponents(Mat& SWTImage,std::ve
                 continue;
             }
             
-            if (variance > 2.5 * mean) {   
+            if (variance > 3 * mean) {   
                   continue;
             }
             
