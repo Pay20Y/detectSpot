@@ -22,7 +22,7 @@ class SWT{
 	public:
 		void StrokeWidthTransform(const cv::Mat& edgeImage,cv::Mat& gradientX,cv::Mat& gradientY,bool dark_on_light,cv::Mat& SWTImage,std::vector<Ray> & rays);
 		void SWTMedianFilter (cv::Mat& SWTImage, std::vector<Ray> & rays);
-		std::vector< std::vector<SWTPoint2d>> findLegallyConnectedComponents (cv::Mat& SWTImage, std::vector<Ray> & rays);
+		std::vector< std::vector<SWTPoint2d>> findLegallyConnectedComponents (cv::Mat& SWTImage, std::vector<Ray> & rays,cv::Mat& edgeImage);
 		std::vector<std::vector<SWTPoint2d>> filterComponents(cv::Mat& SWTImage,std::vector<std::vector<SWTPoint2d> > & components);
 };
 

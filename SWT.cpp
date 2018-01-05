@@ -137,7 +137,7 @@ void SWT::StrokeWidthTransform(const Mat& edgeImage,Mat& gradientX,Mat& gradient
 
 void SWT::SWTMedianFilter (Mat& SWTImage, vector<Ray> & rays){
     for (auto& rit : rays) {
-        for (auto& pit : rit.points) {
+        for (auto& pit : rit.points) {  
             pit.swtValue = SWTImage.at<float>(pit.y, pit.x);
         }
         std::sort(rit.points.begin(), rit.points.end(), &Point2dSort);
@@ -148,7 +148,7 @@ void SWT::SWTMedianFilter (Mat& SWTImage, vector<Ray> & rays){
     }
 }
 
-std::vector<std::vector<SWTPoint2d>> SWT::findLegallyConnectedComponents (cv::Mat& SWTImage, std::vector<Ray> & rays){
+std::vector<std::vector<SWTPoint2d>> SWT::findLegallyConnectedComponents (cv::Mat& SWTImage, std::vector<Ray> & rays,Mat& edgeImage){
         boost::unordered_map<int, int> map;
         boost::unordered_map<int, SWTPoint2d> revmap;
 
@@ -157,8 +157,9 @@ std::vector<std::vector<SWTPoint2d>> SWT::findLegallyConnectedComponents (cv::Ma
         // Number vertices for graph.  Associate each point with number
         for( int row = 0; row < SWTImage.rows; row++ ){
             float * ptr = (float*)SWTImage.ptr(row);
+            const uchar * ptrEE = (const uchar*)edgeImage.ptr(row);
             for (int col = 0; col < SWTImage.cols; col++ ){
-                if (*ptr > 0) {
+                if ((*ptr > 0) && !(*ptrEE > 0)) {
                     map[row * SWTImage.cols + col] = num_vertices;
                     SWTPoint2d p;
                     p.x = col;
@@ -167,6 +168,7 @@ std::vector<std::vector<SWTPoint2d>> SWT::findLegallyConnectedComponents (cv::Ma
                     num_vertices++;
                 }
                 ptr++;
+                ptrEE++;
             }
         }
 
@@ -174,34 +176,40 @@ std::vector<std::vector<SWTPoint2d>> SWT::findLegallyConnectedComponents (cv::Ma
 
         for( int row = 0; row < SWTImage.rows; row++ ){
             float * ptr = (float*)SWTImage.ptr(row);
+            const uchar* ptrE = (const uchar*)edgeImage.ptr(row);
             for (int col = 0; col < SWTImage.cols; col++ ){
-                if (*ptr > 0) {
+                if ((*ptr > 0) && !(*ptrE > 0)) {
                     // check pixel to the right, right-down, down, left-down
                     int this_pixel = map[row * SWTImage.cols + col];
                     // yzhou 17.08.24. The original ratio is 3.0.
                     float ratio_swtV = 2.0;
                     if (col+1 < SWTImage.cols) {
+                        uchar rightE = edgeImage.at<uchar>(row,col+1);
                         float right = SWTImage.at<float>(row, col+1);
-                        if (right > 0 && ((*ptr)/right <= ratio_swtV || right/(*ptr) <= ratio_swtV))
+                        if (right > 0 && ((*ptr)/right <= ratio_swtV || right/(*ptr) <= ratio_swtV) && !(rightE > 0))
                            boost::add_edge(this_pixel, map.at(row * SWTImage.cols + col + 1), g);
                     }
                     if (row+1 < SWTImage.rows) {
                         if (col+1 < SWTImage.cols) {
                             float right_down = SWTImage.at<float>(row+1, col+1);
-                            if (right_down > 0 && ((*ptr)/right_down <= ratio_swtV || right_down/(*ptr) <= ratio_swtV))
+                            uchar right_downE = edgeImage.at<uchar>(row+1,col+1);
+                            if (right_down > 0 && ((*ptr)/right_down <= ratio_swtV || right_down/(*ptr) <= ratio_swtV) && !(right_downE > 0))
                                 boost::add_edge(this_pixel, map.at((row+1) * SWTImage.cols + col + 1), g);
                         }
                         float down = SWTImage.at<float>(row+1, col);
-                        if (down > 0 && ((*ptr)/down <= ratio_swtV || down/(*ptr) <= ratio_swtV))
+                        uchar downE = edgeImage.at<uchar>(row+1,col);
+                        if (down > 0 && ((*ptr)/down <= ratio_swtV || down/(*ptr) <= ratio_swtV) && !(downE > 0))
                             boost::add_edge(this_pixel, map.at((row+1) * SWTImage.cols + col), g);
                         if (col-1 >= 0) {
                             float left_down = SWTImage.at<float>(row+1, col-1);
-                            if (left_down > 0 && ((*ptr)/left_down <= ratio_swtV || left_down/(*ptr) <= ratio_swtV))
+                            uchar left_downE = edgeImage.at<uchar>(row+1,col-1);
+                            if (left_down > 0 && ((*ptr)/left_down <= ratio_swtV || left_down/(*ptr) <= ratio_swtV) && !(left_downE > 0))
                                 boost::add_edge(this_pixel, map.at((row+1) * SWTImage.cols + col - 1), g);
                         }
                     }
                 }
                 ptr++;
+                ptrE++;
             }
         }
 
@@ -268,23 +276,7 @@ std::vector<std::vector<SWTPoint2d>> SWT::filterComponents(Mat& SWTImage,std::ve
 
         for (std::vector<std::vector<SWTPoint2d> >::iterator it = components.begin(); it != components.end();it++) 
         {
-            // compute the stroke width mean, variance, median
-            float mean, variance;
-            int minx, miny, maxx, maxy;
-            
-            componentStats(SWTImage, (*it), mean, variance, minx, miny, maxx, maxy);
-            
             /*
-            if(mean > 50){
-                continue;
-            }*/
-            
-            if (variance > 2.5 * mean) {   
-                  continue;
-            }
-            
-            //std::vector<SWTPoint2d> temp = *it;
-            
             std::vector<SWTPoint2d> temp;
             temp.reserve(it->size());
             for(std::vector<SWTPoint2d>::const_iterator it2 = it->begin();it2 != it->end();it2++){
@@ -292,6 +284,20 @@ std::vector<std::vector<SWTPoint2d>> SWT::filterComponents(Mat& SWTImage,std::ve
                 if(swtValue <= 20){
                     temp.push_back(*it2);
                 }
+            }*/
+
+            // compute the stroke width mean, variance, median
+            float mean, variance;
+            int minx, miny, maxx, maxy;
+            //componentStats(SWTImage, temp, mean, variance, minx, miny, maxx, maxy);
+            componentStats(SWTImage, (*it), mean, variance, minx, miny, maxx, maxy);
+            
+            if(mean > 40){
+                continue;
+            }
+            
+            if (variance > 2.5 * mean) {   
+                  continue;
             }
             
             // filterRay(SWTImage,(*it),temp);

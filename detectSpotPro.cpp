@@ -71,8 +71,10 @@ Mat convert2gray(Mat input){
 
 Mat doCanny(Mat& grayImage){
     // cout<<"Do canny--->"<<endl;
-    double threshold_low = 150; 
-    double threshold_high = 250;
+    // double threshold_low = 150; 
+    // double threshold_high = 250;
+    double threshold_low = 100;
+    double threshold_high = 175;
     Mat edgeImage( grayImage.size(),CV_8UC1 );
 
     Canny(grayImage, edgeImage, threshold_low, threshold_high, 3);
@@ -91,7 +93,7 @@ std::vector<std::vector<Point>> afterSWT(Mat& input,Mat& edgeImage,Mat& gradient
     swt.SWTMedianFilter(SWTImage, rays);
 
     // std::vector<std::vector<SWTPoint2d>> components = swt.findLegallyConnectedComponents(SWTImage,rays);
-    components = swt.findLegallyConnectedComponents(SWTImage,rays);
+    components = swt.findLegallyConnectedComponents(SWTImage,rays,edgeImage);
     std::vector<std::vector<SWTPoint2d>> validComponents = swt.filterComponents(SWTImage,components);
 
     std::vector<std::vector<Point>> gotComponents;
@@ -254,7 +256,7 @@ void doDetectHSV(std::vector<std::vector<Point>>& components,Mat& input,std::vec
         }
         bool notCharacter = false;
         bool notHead = false;
-        if(max(bRect.width,bRect.height)>125 && (min(bRect.height,bRect.width)>100)){
+        if(max(bRect.width,bRect.height)>150 && (min(bRect.height,bRect.width)>100)){
             notHead = true;
         }
         if(max(bRect.width,bRect.height)>80){
