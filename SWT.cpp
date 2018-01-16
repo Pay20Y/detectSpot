@@ -100,7 +100,7 @@ void SWT::StrokeWidthTransform(const Mat& edgeImage,Mat& gradientX,Mat& gradient
                                 G_yt = G_yt / mag;
 
                             }
-                            if (acos(G_x * -G_xt + G_y * -G_yt) < PI/2.0 ) // yzhou 17.08.24 change angel, the origin is PI/2.0
+                            if (acos(G_x * -G_xt + G_y * -G_yt) < PI/3.0 ) // yzhou 17.08.24 change angel, the origin is PI/2.0
                             {
                                 float length = sqrt( ((float)r.q.x - (float)r.p.x)*((float)r.q.x - (float)r.p.x) + ((float)r.q.y - (float)r.p.y)*((float)r.q.y - (float)r.p.y));
                                 
@@ -292,7 +292,7 @@ std::vector<std::vector<SWTPoint2d>> SWT::filterComponents(Mat& SWTImage,std::ve
             //componentStats(SWTImage, temp, mean, variance, minx, miny, maxx, maxy);
             componentStats(SWTImage, (*it), mean, variance, minx, miny, maxx, maxy);
             
-            if(mean > 40){
+            if(mean > 15){
                 continue;
             }
             

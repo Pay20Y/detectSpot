@@ -385,10 +385,7 @@ int main(){
             cout<<"a dir continue..."<<endl;
             continue;
         }
-        /*
-        if(!(filename == "14.jpg")){
-            continue;
-        }*/
+        
 
         cout<<"Now process "<<filename<<" ..."<<endl;
         // cout<<ptr->d_type<<" "<<ptr->d_ino<<endl;
@@ -396,6 +393,13 @@ int main(){
         Mat grayImage = convert2gray(input);
         Mat edgeImage = doCanny(grayImage);
         
+        Mat grayImageReg = ~grayImage;
+        
+        // imshow("grayImage",grayImageReg);
+        // waitKey(-1);
+        
+        Mat distanceMat(input.size(),CV_32FC1);
+        distanceTransform(grayImageReg,distanceMat,CV_DIST_L2,3);
         Mat inputHSV;
         cvtColor(input,inputHSV,CV_RGB2HSV);
         
