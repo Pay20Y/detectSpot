@@ -139,8 +139,8 @@ std::vector<std::vector<Point>> filterSmall(std::vector<std::vector<Point>>& com
 
 		std::vector<std::vector<Point>> contours;
 		findContours( temp_convex, contours, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_NONE );
-		cout<<"contours' size is: "<<contours.size()<<endl;
-		cout<<"1st vector of contours'size is: "<<contours[0].size()<<endl;
+		// cout<<"contours' size is: "<<contours.size()<<endl;
+		// cout<<"1st vector of contours'size is: "<<contours[0].size()<<endl;
 		/*
 		Mat contoursImage = Mat::zeros(binaryImage.size(),CV_8UC1);
 		contoursImage = ~contoursImage;
@@ -240,15 +240,19 @@ int main(){
         
         Mat filterComponentsImage = Mat::zeros(input.size(),CV_8UC3);
         filterComponentsImage = ~filterComponentsImage;
-        // imshow("components",binaryComponentsImage);
-        // waitKey(-1);
+
+        plotComponents_rgb(afterFilter,filterComponentsImage);
         
         Mat combine2show(2 * input.rows + 10,2 * input.cols + 10,CV_8UC1);
-        cvtColor(combine2show,combine2show,CV_GRAY2RGB);
+        combine2show.setTo(0);
+        //cvtColor(combine2show,combine2show,CV_GRAY2RGB);
+        
+        binaryImage.copyTo(combine2show(Rect(input.cols + 10,0,binaryImage.cols,binaryImage.rows)));
+		cvtColor(combine2show,combine2show,CV_GRAY2RGB);
         input.copyTo(combine2show(Rect(0,0,input.cols,input.rows)));
         binaryComponentsImage.copyTo(combine2show(Rect(0,input.rows + 10,binaryComponentsImage.cols,binaryComponentsImage.rows)));
-        cvtColor(combine2show,combine2show,CV_RGB2GRAY);
-        binaryImage.copyTo(combine2show(Rect(input.cols + 10,0,binaryImage.cols,binaryImage.rows)));
+        filterComponentsImage.copyTo(combine2show(Rect(input.cols + 10,input.rows + 10,filterComponentsImage.cols,filterComponentsImage.rows)));
+        
         imwrite("../data/binaryImage/" + to_string(num) + ".jpg",combine2show);
         num++;
     }
