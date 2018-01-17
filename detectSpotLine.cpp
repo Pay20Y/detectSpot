@@ -52,7 +52,7 @@ Mat convert2gray(Mat input){
     return grayImage;
 }
 
-std::vector<vector<Point>> getComponents(Mat binaryImage){
+std::vector<vector<Point>> getComponents(Mat& binaryImage){
 	boost::unordered_map<int, int> map;
     boost::unordered_map<int, Point> revmap;
 
@@ -127,6 +127,48 @@ std::vector<vector<Point>> getComponents(Mat binaryImage){
     return components;
 }
 
+// std::vector<std::vector<Point>> filterSmall(std::vector<std::vector<Point>>& components,Mat& binaryImage){
+std::vector<std::vector<Point>> filterSmall(std::vector<std::vector<Point>>& components,Mat& binaryImage){
+	std::vector<std::vector<Point>> afterFilter;
+	for(std::vector<std::vector<Point>>::const_iterator it1 = components.begin();it1 != components.end();it1++){
+		Mat temp_convex = Mat::zeros(binaryImage.size(),CV_8UC1);
+
+		for(std::vector<Point>::const_iterator itp = it1->begin();itp != it1->end();itp++){
+			temp_convex.at<uchar>(itp->y,itp->x) = 255;
+		}
+
+		std::vector<std::vector<Point>> contours;
+		findContours( temp_convex, contours, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_NONE );
+		cout<<"contours' size is: "<<contours.size()<<endl;
+		cout<<"1st vector of contours'size is: "<<contours[0].size()<<endl;
+		/*
+		Mat contoursImage = Mat::zeros(binaryImage.size(),CV_8UC1);
+		contoursImage = ~contoursImage;
+		for(std::vector<std::vector<Point>>::const_iterator it1 = contours.begin();it1 != contours.end();it1++){
+			for(std::vector<Point>::const_iterator it2 = it1->begin();it2 != it1->end();it2++){
+				contoursImage.at<uchar>(it2->y,it2->x) = 0;
+			}
+		}
+		imshow("contours",contoursImage);
+		waitKey(-1);
+		*/
+		/*
+		std::vector<Rect> boundingRects;
+		boundingRects.reserve(contours.size());
+		for(std::vector<std::vector<Point>>::const_iterator itc = contours.begin();itc != contours.end();itc++){
+			Rect bRect = boundingRect(*itc);
+			boundingRects.push_back(bRect);
+		}*/
+		Rect bRect = boundingRect(contours[0]);
+		if(max(bRect.width,bRect.height) >= 80){
+			afterFilter.push_back(*it1);
+		}
+
+	}
+
+	return afterFilter;
+
+}
 
 void plotComponents_rgb(std::vector<std::vector<Point>>& components,Mat& showComponents){
     assert (showComponents.channels() == 3);
@@ -186,16 +228,25 @@ int main(){
 
         Mat binaryImage(input.size(),CV_8UC1);
         threshold(grayImage,binaryImage,150,255,THRESH_BINARY);
+        Mat binaryImageReg = ~binaryImage;
 
-        std::vector<std::vector<Point>> components = getComponents(binaryImage);
-        Mat components2show(input.size(),CV_8UC3);
+        std::vector<std::vector<Point>> components = getComponents(binaryImageReg);
+        Mat binaryComponentsImage = Mat::zeros(input.size(),CV_8UC3);
+        binaryComponentsImage = ~binaryComponentsImage;
 
-        plotComponents_rgb(components,components2show);
-        imshow("components",components2show);
-        waitKey(-1);
-        Mat combine2show(input.rows,2 * input.cols + 10,CV_8UC1);
+        plotComponents_rgb(components,binaryComponentsImage);
+
+        std::vector<std::vector<Point>> afterFilter = filterSmall(components,binaryImageReg);
+        
+        Mat filterComponentsImage = Mat::zeros(input.size(),CV_8UC3);
+        filterComponentsImage = ~filterComponentsImage;
+        // imshow("components",binaryComponentsImage);
+        // waitKey(-1);
+        
+        Mat combine2show(2 * input.rows + 10,2 * input.cols + 10,CV_8UC1);
         cvtColor(combine2show,combine2show,CV_GRAY2RGB);
         input.copyTo(combine2show(Rect(0,0,input.cols,input.rows)));
+        binaryComponentsImage.copyTo(combine2show(Rect(0,input.rows + 10,binaryComponentsImage.cols,binaryComponentsImage.rows)));
         cvtColor(combine2show,combine2show,CV_RGB2GRAY);
         binaryImage.copyTo(combine2show(Rect(input.cols + 10,0,binaryImage.cols,binaryImage.rows)));
         imwrite("../data/binaryImage/" + to_string(num) + ".jpg",combine2show);
