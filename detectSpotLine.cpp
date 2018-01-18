@@ -52,14 +52,24 @@ Mat convert2gray(Mat input){
     return grayImage;
 }
 
-std::vector<vector<Point>> getComponents(Mat& binaryImage,Mat& grayImage){
-	boost::unordered_map<int, int> map;
-    boost::unordered_map<int, Point> revmap;
+Mat doCanny(Mat& grayImage){
+    // cout<<"Do canny--->"<<endl;
+    double threshold_low = 150; 
+    double threshold_high = 250;
+    Mat edgeImage( grayImage.size(),CV_8UC1 );
 
-    typedef boost::adjacency_list<boost::vecS, boost::vecS, boost::undirectedS> Graph;
-    int num_vertices = 0;
-    // Number vertices for graph.  Associate each point with number
-    for( int row = 0; row < binaryImage.rows; row++ ){
+    Canny(grayImage, edgeImage, threshold_low, threshold_high, 3);
+    return edgeImage;
+}	
+
+/*
+std::vector<std::vector<Point>> getComponents_rgb(Mat& binaryImage,Mat& input){
+	boost::unordered_map<int,int> map;
+	boost::unordered_map<int,Point> revmap;
+
+	typedef boost::adjacency_list<boost::vecS,boost::vecS,boost::undirectedS> Graph;
+	int num_vertices = 0;
+	for( int row = 0; row < binaryImage.rows; row++ ){
     	uchar * ptr = (uchar*)binaryImage.ptr(row);
     	for (int col = 0; col < binaryImage.cols; col++ ){
             if (*ptr > 0) {
@@ -78,9 +88,11 @@ std::vector<vector<Point>> getComponents(Mat& binaryImage,Mat& grayImage){
 
     for( int row = 0; row < binaryImage.rows; row++ ){
         uchar * ptr = (uchar*)binaryImage.ptr(row);
-        uchar * ptrG = (uchar*)grayImage.ptr(row);        
+        // Vec3b * ptrG = (Vec3b*)input.ptr(row);        
         for (int col = 0; col < binaryImage.cols; col++ ){
-        	int grayValue = grayImage.at<uchar>(row,col);
+        	int redValue = input.at<Vec3b>(row,col)[0];
+        	int greenValue = input.at<Vec3b>(row,col)[1];
+        	int blueValue = inputa.at<Vec3b>(row,col)[2];
             if (*ptr > 0) {
                 // check pixel to the right, right-down, down, left-down
                 int this_pixel = map[row * binaryImage.cols + col];
@@ -88,7 +100,7 @@ std::vector<vector<Point>> getComponents(Mat& binaryImage,Mat& grayImage){
                     uchar right = binaryImage.at<uchar>(row, col+1);
                     int grayValue_right = grayImage.at<uchar>(row,col+1);
                     int grayValue_ratio = abs(grayValue_right - grayValue);
-                    if ((right > 0) && (grayValue_ratio <= 5))
+                    if ((right > 0) && (grayValue_ratio <= 12))
                         boost::add_edge(this_pixel, map.at(row * binaryImage.cols + col + 1), g);
                	}
                 if (row+1 < binaryImage.rows) {
@@ -96,25 +108,100 @@ std::vector<vector<Point>> getComponents(Mat& binaryImage,Mat& grayImage){
                         uchar right_down = binaryImage.at<uchar>(row+1, col+1);
                         int grayValue_rightdown = grayImage.at<uchar>(row+1,col+1);
                         int grayValue_ratio = abs(grayValue_rightdown - grayValue);
-                        if ((right_down > 0) && (grayValue_ratio <= 5))
+                        if ((right_down > 0) && (grayValue_ratio <= 12))
                             boost::add_edge(this_pixel, map.at((row+1) * binaryImage.cols + col + 1), g);
                     }
                     uchar down = binaryImage.at<uchar>(row+1, col);
                     int grayValue_down = grayImage.at<uchar>(row+1,col);
                     int grayValue_ratio = abs(grayValue_down - grayValue);
-                    if ((down > 0) && (grayValue_ratio <= 5))
+                    if ((down > 0) && (grayValue_ratio <= 12))
                         boost::add_edge(this_pixel, map.at((row+1) * binaryImage.cols + col), g);
                     if (col-1 >= 0) {
                         uchar left_down = binaryImage.at<uchar>(row+1, col-1);
                         int grayValue_leftdown = grayImage.at<uchar>(row+1,col-1);
                         int grayValue_ratio = abs(grayValue_leftdown - grayValue);
-                        if ((left_down > 0) && (grayValue_ratio <= 5))
+                        if ((left_down > 0) && (grayValue_ratio <= 12))
                             boost::add_edge(this_pixel, map.at((row+1) * binaryImage.cols + col - 1), g);
                     }
                 }
             }
             ptr++;
             
+        }
+    }
+}
+*/
+
+std::vector<vector<Point>> getComponents(Mat& binaryImage,Mat& grayImage,Mat& edgeImage){
+	boost::unordered_map<int, int> map;
+    boost::unordered_map<int, Point> revmap;
+
+    typedef boost::adjacency_list<boost::vecS, boost::vecS, boost::undirectedS> Graph;
+    int num_vertices = 0;
+    // Number vertices for graph.  Associate each point with number
+    for( int row = 0; row < binaryImage.rows; row++ ){
+    	uchar * ptr = (uchar*)binaryImage.ptr(row);
+    	const uchar* ptrE = (const uchar*)edgeImage.ptr(row);
+    	for (int col = 0; col < binaryImage.cols; col++ ){
+            if ((*ptr > 0) && !(*ptrE > 0)) {
+                map[row * binaryImage.cols + col] = num_vertices;
+                Point p;
+                p.x = col;
+                p.y = row;
+                revmap[num_vertices] = p;
+                num_vertices++;
+            }
+            ptr++;
+            ptrE++;
+        }
+    }
+
+    Graph g(num_vertices);
+
+    for( int row = 0; row < binaryImage.rows; row++ ){
+        uchar * ptr = (uchar*)binaryImage.ptr(row);
+        uchar * ptrG = (uchar*)grayImage.ptr(row); 
+        const uchar* ptrE = (const uchar*)edgeImage.ptr(row);       
+        for (int col = 0; col < binaryImage.cols; col++ ){
+        	int grayValue = grayImage.at<uchar>(row,col);
+            if ((*ptr > 0) && !(*ptrE > 0)) {
+                // check pixel to the right, right-down, down, left-down
+                int this_pixel = map[row * binaryImage.cols + col];
+                if (col+1 < binaryImage.cols) {
+                    uchar right = binaryImage.at<uchar>(row, col+1);
+                    uchar edge_right = edgeImage.at<uchar>(row,col+1);
+                    int grayValue_right = grayImage.at<uchar>(row,col+1);
+                    int grayValue_ratio = abs(grayValue_right - grayValue);
+                    if ((right > 0) && (grayValue_ratio <= 12) && !(edge_right > 0))
+                        boost::add_edge(this_pixel, map.at(row * binaryImage.cols + col + 1), g);
+               	}
+                if (row+1 < binaryImage.rows) {
+                    if (col+1 < binaryImage.cols) {
+                        uchar right_down = binaryImage.at<uchar>(row+1, col+1);
+                        uchar edge_rightdown = edgeImage.at<uchar>(row+1,col+1);
+                        int grayValue_rightdown = grayImage.at<uchar>(row+1,col+1);
+                        int grayValue_ratio = abs(grayValue_rightdown - grayValue);
+                        if ((right_down > 0) && (grayValue_ratio <= 12) && !(edge_rightdown > 0))
+                            boost::add_edge(this_pixel, map.at((row+1) * binaryImage.cols + col + 1), g);
+                    }
+                    uchar down = binaryImage.at<uchar>(row+1, col);
+                    uchar edge_down = edgeImage.at<uchar>(row+1,col);
+                    int grayValue_down = grayImage.at<uchar>(row+1,col);
+                    int grayValue_ratio = abs(grayValue_down - grayValue);
+                    if ((down > 0) && (grayValue_ratio <= 12) && !(edge_down > 0))
+                        boost::add_edge(this_pixel, map.at((row+1) * binaryImage.cols + col), g);
+                    if (col-1 >= 0) {
+                        uchar left_down = binaryImage.at<uchar>(row+1, col-1);
+                        uchar edge_leftdown = edgeImage.at<uchar>(row+1,col-1);
+                        int grayValue_leftdown = grayImage.at<uchar>(row+1,col-1);
+                        int grayValue_ratio = abs(grayValue_leftdown - grayValue);
+                        if ((left_down > 0) && (grayValue_ratio <= 12) && !(edge_leftdown > 0))
+                            boost::add_edge(this_pixel, map.at((row+1) * binaryImage.cols + col - 1), g);
+                    }
+                }
+            }
+            ptr++;
+            ptrE++;
         }
     }
 
@@ -190,9 +277,9 @@ std::vector<std::vector<Point>> filterComponents(std::vector<std::vector<Point>>
 
 }
 
-bool infoDivergence(Mat& binaryImage,Mat& binaryImageReg,std::vector<std::vector<Point>>& components1,std::vector<std::vector<Point>>& components2){
-	components1 = getComponents(binaryImage);
-	components2 = getComponents(binaryImageReg);
+bool infoDivergence(Mat& binaryImage,Mat& binaryImageReg,Mat& grayImage,Mat& edgeImage,std::vector<std::vector<Point>>& components1,std::vector<std::vector<Point>>& components2){
+	components1 = getComponents(binaryImage,grayImage,edgeImage);
+	components2 = getComponents(binaryImageReg,grayImage,edgeImage);
 
 	return (components1.size() > components2.size()) ? true : false;
 }
@@ -252,9 +339,15 @@ int main(){
         // cout<<ptr->d_type<<" "<<ptr->d_ino<<endl;
         Mat input = loadImageFolder(filename);
         Mat grayImage = convert2gray(input);
+        Mat edgeImage = doCanny(grayImage);
+        // Mat gaussianImage( grayImage.size(), CV_32FC1); // 元素类型为 32位float型，一个通道
+        // grayImage.convertTo(gaussianImage, CV_32FC1, 1./255.);
+        // GaussianBlur( gaussianImage, gaussianImage, Size(5, 5), 0); // blurs an image using a Gaussian filter
+        // gaussianImage = gaussianImage * 255;
 
         Mat binaryImage(input.size(),CV_8UC1);
         threshold(grayImage,binaryImage,150,255,THRESH_BINARY);
+        // threshold(gaussianImage,binaryImage,150,255,THRESH_BINARY);
         Mat binaryImageReg = ~binaryImage;
 
         std::vector<std::vector<Point>> components_binary;
@@ -269,7 +362,8 @@ int main(){
         else
         	components = components_binaryReg;
 		*/
-        std::vector<std::vector<Point>> components = getComponents(binaryImageReg,grayImage);
+        std::vector<std::vector<Point>> components = getComponents(binaryImageReg,grayImage,edgeImage);
+        // std::vector<std::vector<Point>> components = getComponents(binaryImageReg,gaussianImage);
         Mat binaryComponentsImage = Mat::zeros(input.size(),CV_8UC3);
         binaryComponentsImage = ~binaryComponentsImage;
 
@@ -282,11 +376,13 @@ int main(){
 
         plotComponents_rgb(afterFilter,filterComponentsImage);
         
-        Mat combine2show(2 * input.rows + 10,2 * input.cols + 10,CV_8UC1);
+        Mat combine2show(2 * input.rows + 10,3 * input.cols + 20,CV_8UC1);
         combine2show.setTo(0);
         //cvtColor(combine2show,combine2show,CV_GRAY2RGB);
         
-        binaryImage.copyTo(combine2show(Rect(input.cols + 10,0,binaryImage.cols,binaryImage.rows)));
+        binaryImage.copyTo(combine2show(Rect(2 * input.cols + 20,0,binaryImage.cols,binaryImage.rows)));
+        grayImage.copyTo(combine2show(Rect(input.cols + 10,0,grayImage.cols,grayImage.rows)));
+        // gaussianImage.copyTo(combine2show(Rect(input.cols + 10,0,gaussianImage.cols,gaussianImage.rows)));
 		cvtColor(combine2show,combine2show,CV_GRAY2RGB);
         input.copyTo(combine2show(Rect(0,0,input.cols,input.rows)));
         binaryComponentsImage.copyTo(combine2show(Rect(0,input.rows + 10,binaryComponentsImage.cols,binaryComponentsImage.rows)));
