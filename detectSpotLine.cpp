@@ -52,7 +52,7 @@ Mat convert2gray(Mat input){
     return grayImage;
 }
 
-std::vector<vector<Point>> getComponents(Mat& binaryImage){
+std::vector<vector<Point>> getComponents(Mat& binaryImage,Mat& grayImage){
 	boost::unordered_map<int, int> map;
     boost::unordered_map<int, Point> revmap;
 
@@ -77,28 +77,38 @@ std::vector<vector<Point>> getComponents(Mat& binaryImage){
     Graph g(num_vertices);
 
     for( int row = 0; row < binaryImage.rows; row++ ){
-        uchar * ptr = (uchar*)binaryImage.ptr(row);        
+        uchar * ptr = (uchar*)binaryImage.ptr(row);
+        uchar * ptrG = (uchar*)grayImage.ptr(row);        
         for (int col = 0; col < binaryImage.cols; col++ ){
+        	int grayValue = grayImage.at<uchar>(row,col);
             if (*ptr > 0) {
                 // check pixel to the right, right-down, down, left-down
                 int this_pixel = map[row * binaryImage.cols + col];
                 if (col+1 < binaryImage.cols) {
                     uchar right = binaryImage.at<uchar>(row, col+1);
-                    if (right > 0)
+                    int grayValue_right = grayImage.at<uchar>(row,col+1);
+                    int grayValue_ratio = abs(grayValue_right - grayValue);
+                    if ((right > 0) && (grayValue_ratio <= 5))
                         boost::add_edge(this_pixel, map.at(row * binaryImage.cols + col + 1), g);
                	}
                 if (row+1 < binaryImage.rows) {
                     if (col+1 < binaryImage.cols) {
                         uchar right_down = binaryImage.at<uchar>(row+1, col+1);
-                        if (right_down > 0)
+                        int grayValue_rightdown = grayImage.at<uchar>(row+1,col+1);
+                        int grayValue_ratio = abs(grayValue_rightdown - grayValue);
+                        if ((right_down > 0) && (grayValue_ratio <= 5))
                             boost::add_edge(this_pixel, map.at((row+1) * binaryImage.cols + col + 1), g);
                     }
                     uchar down = binaryImage.at<uchar>(row+1, col);
-                    if (down > 0)
+                    int grayValue_down = grayImage.at<uchar>(row+1,col);
+                    int grayValue_ratio = abs(grayValue_down - grayValue);
+                    if ((down > 0) && (grayValue_ratio <= 5))
                         boost::add_edge(this_pixel, map.at((row+1) * binaryImage.cols + col), g);
                     if (col-1 >= 0) {
                         uchar left_down = binaryImage.at<uchar>(row+1, col-1);
-                        if (left_down > 0)
+                        int grayValue_leftdown = grayImage.at<uchar>(row+1,col-1);
+                        int grayValue_ratio = abs(grayValue_leftdown - grayValue);
+                        if ((left_down > 0) && (grayValue_ratio <= 5))
                             boost::add_edge(this_pixel, map.at((row+1) * binaryImage.cols + col - 1), g);
                     }
                 }
@@ -128,7 +138,7 @@ std::vector<vector<Point>> getComponents(Mat& binaryImage){
 }
 
 // std::vector<std::vector<Point>> filterSmall(std::vector<std::vector<Point>>& components,Mat& binaryImage){
-std::vector<std::vector<Point>> filterSmall(std::vector<std::vector<Point>>& components,Mat& binaryImage){
+std::vector<std::vector<Point>> filterComponents(std::vector<std::vector<Point>>& components,Mat& binaryImage){
 	std::vector<std::vector<Point>> afterFilter;
 	for(std::vector<std::vector<Point>>::const_iterator it1 = components.begin();it1 != components.end();it1++){
 		Mat temp_convex = Mat::zeros(binaryImage.size(),CV_8UC1);
@@ -137,6 +147,7 @@ std::vector<std::vector<Point>> filterSmall(std::vector<std::vector<Point>>& com
 			temp_convex.at<uchar>(itp->y,itp->x) = 255;
 		}
 
+		float compArea = countNonZero(temp_convex);
 		std::vector<std::vector<Point>> contours;
 		findContours( temp_convex, contours, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_NONE );
 		// cout<<"contours' size is: "<<contours.size()<<endl;
@@ -160,14 +171,30 @@ std::vector<std::vector<Point>> filterSmall(std::vector<std::vector<Point>>& com
 			boundingRects.push_back(bRect);
 		}*/
 		Rect bRect = boundingRect(contours[0]);
-		if(max(bRect.width,bRect.height) >= 80){
+
+		float solidity = compArea / bRect.area();
+		float width_heightRatio = max(bRect.width / bRect.height , bRect.height / bRect.width);
+
+		if(max(bRect.width,bRect.height) < 80){
+			continue;
+		}
+		if((solidity <= 0.4) || (width_heightRatio > 10)){
 			afterFilter.push_back(*it1);
 		}
+
+
 
 	}
 
 	return afterFilter;
 
+}
+
+bool infoDivergence(Mat& binaryImage,Mat& binaryImageReg,std::vector<std::vector<Point>>& components1,std::vector<std::vector<Point>>& components2){
+	components1 = getComponents(binaryImage);
+	components2 = getComponents(binaryImageReg);
+
+	return (components1.size() > components2.size()) ? true : false;
 }
 
 void plotComponents_rgb(std::vector<std::vector<Point>>& components,Mat& showComponents){
@@ -230,13 +257,25 @@ int main(){
         threshold(grayImage,binaryImage,150,255,THRESH_BINARY);
         Mat binaryImageReg = ~binaryImage;
 
-        std::vector<std::vector<Point>> components = getComponents(binaryImageReg);
+        std::vector<std::vector<Point>> components_binary;
+        std::vector<std::vector<Point>> components_binaryReg;
+        //test the 2 binary which adaptive to correct scene
+        /*
+        bool trick_binary = infoDivergence(binaryImage,binaryImageReg,components_binary,components_binaryReg); 
+        
+        std::vector<std::vector<Point>> components;
+        if(trick_binary)
+        	components = components_binary;
+        else
+        	components = components_binaryReg;
+		*/
+        std::vector<std::vector<Point>> components = getComponents(binaryImageReg,grayImage);
         Mat binaryComponentsImage = Mat::zeros(input.size(),CV_8UC3);
         binaryComponentsImage = ~binaryComponentsImage;
 
         plotComponents_rgb(components,binaryComponentsImage);
 
-        std::vector<std::vector<Point>> afterFilter = filterSmall(components,binaryImageReg);
+        std::vector<std::vector<Point>> afterFilter = filterComponents(components,binaryImageReg);
         
         Mat filterComponentsImage = Mat::zeros(input.size(),CV_8UC3);
         filterComponentsImage = ~filterComponentsImage;
